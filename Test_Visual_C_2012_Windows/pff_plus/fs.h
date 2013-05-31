@@ -1,4 +1,4 @@
-﻿/*
+/*
 It is an open source software to implement FAT file system to
 small embedded systems. This is a free software and is opened for education,
 research and commercial developments under license policy of following trems.
@@ -20,22 +20,22 @@ Version 0.99 5-05-2013
 #include "common.h"
 
 /* Disable checking and kill the file system */
-/* С помощью этого макроса можно отключить проеерки, что бы сэкономить ПЗУ и убить файловую систему.*/
+/* С помощью этого макроса можно отключить проверки, что бы сэкономить ПЗУ и убить файловую систему.*/
 /* #define FS_DISABLE_CHECK */
 
-/* Two opened files */
-/* Два открытых файла */
+/* Function fs_swap (Two opened files) */
+/* Функция fs_swap (два открытых файла) */
 /* #define FS_DISABLE_SWAP */
 
-/* Calculation of free disk space */
-/* Определение свободного места на диске */
+/* Function fs_getfree (Calculation of free disk space) */
+/* Функция fs_getfree (определение свободного места на диске) */
 /* #define FS_DISABLE_GETFREESPACE */
 
 /* Work buffer for filesystem */
 /* Буфер для работы файловой системы */
 extern BYTE buf[512];
 
-/* Error */
+/* File syustem errors */
 /* Ошибки файловой системы */
 
 #define ERR_OK              0  // Нет ошибки
@@ -67,8 +67,8 @@ typedef struct {
   DWORD entry_start_cluster; /* Первый сектор файла или каталога (0 - корневой каталог FAT16) */
   DWORD ptr;                 /* Указатель чтения/записи файла*/
   DWORD size;                /* Размер файла / File size */
-  DWORD cluster;             /* Текущий кластер файла */
-  DWORD sector;              /* Текущий сектор файла */
+  DWORD cluster;             /* Текущий кластер файла / Current cluster */
+  DWORD sector;              /* Текущий сектор файла / Current sector */
   WORD  wtotal;              /* Аргументы функции fs_write_start, fs_write_end */
   BYTE  changed;             /* Размер файла изменился, надо сохранить */
 } File;
@@ -76,10 +76,10 @@ typedef struct {
 extern File fs_file;
 extern DWORD fs_tmp;
 
-/* Filesystem variables. Can change */
+/* Filesystem variables. You can change it. */
 /* Переменные файловой системы. Можно изменять */
 
-extern BYTE lastError;       /* Последняя ошибка файловой системы или диска */
+extern BYTE lastError;       /* Последняя ошибка файловой системы или диска / Last error */
 
 /* Maximal length of file name */
 /* Максимальная длина имени */
@@ -147,8 +147,7 @@ BYTE fs_opendir();                               /* Открыть папку */
 #define fs_create()     fs_open0(OPENED_FILE)    /* Создать файл */
 #define fs_createdir()  fs_open0(OPENED_DIR)     /* Создать папку */
 
-
-/* Values ​​fs_opened */
+/* Values fs_opened */
 /* Значения fs_opened */
 
 #define OPENED_NONE    0
@@ -166,7 +165,7 @@ BYTE fs_opendir();                               /* Открыть папку */
 #define AM_ARC         0x20  /* Archive */
 
 /* Fodler descriptor (FS_DIRENTRY) */
-/* Описатель */
+/* Описатель (FS_DIRENTRY) */
 
 #define	DIR_Name       0
 #define	DIR_Attr       11
