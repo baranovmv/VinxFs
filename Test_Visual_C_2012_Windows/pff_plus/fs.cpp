@@ -18,7 +18,14 @@ P.S. goto allows you to save memory! Like other horrors bellow.
 Program size: 3070 words (6140 bytes), 75% of FLASH at ATMega8 !!!
 */
 
-#include <stdafx.h>
+/* 
+Я не стал добавлять контроль на специальные имена
+CON,PRN,AUX,CLOCK$,NUL,COM1,COM2,COM3,COM4,LPT1,LPT2,LPT3
+что бы не занимать микроконтроллер. Файлы с такими именами
+оставляю на совести программиста.
+*/
+
+//#include <stdafx.h>
 #include "fs.h"
 #include "sd.h"
 #include <string.h>
@@ -41,6 +48,22 @@ Program size: 3070 words (6140 bytes), 75% of FLASH at ATMega8 !!!
 
 /* Системные переменные. Информация из boot-сектора */
 
+typedef struct { 
+#ifndef FS_DISABLE_CHECK
+  BYTE  opened;              /* Что открыто: OPENED_NONE, OPENED_FILE, OPENED_DIR */
+#endif
+  BYTE  entry_able;          /* Результат выполнения функции fs_dirread */
+  WORD  entry_index;         /* Номер записи в каталоге */
+  DWORD entry_cluster;       /* Кластер записи в каталоге */
+  DWORD entry_sector;        /* Сектор записи в каталоге */
+  DWORD entry_start_cluster; /* Первый сектор файла или каталога (0 - корневой каталог FAT16) */
+  DWORD ptr;                 /* Указатель чтения/записи файла*/
+  DWORD size;                /* Размер файла / File size */
+  DWORD cluster;             /* Текущий кластер файла */
+  DWORD sector;              /* Текущий сектор файла */
+  BYTE  changed;             /* Размер файла изменился, надо сохранить */
+} File;
+
 BYTE  fs_type;         /* FS_FAT16, FS_FAT32, FS_ERROR */
 DWORD fs_fatbase;      /* Адрес первой FAT */
 DWORD fs_fatbase2;     /* Адрес второй FAT */
@@ -55,6 +78,7 @@ DWORD fs_database;     /* Адрес второго кластера */
 BYTE  lastError;       /* Последняя ошибка */
 DWORD fs_fatoptim;     /* Первый свободный кластер */
 DWORD fs_tmp;          /* Используеются для разных целей */
+WORD  fs_wtotal;       /* Используется функциями fs_write_start, fs_write_end*/
 
 /* Открытые файлы/папки */
 
@@ -259,6 +283,7 @@ static BYTE fs_readdirInt() {
     if(fs_file.entry_index == 0 || (fs_file.entry_cluster == 0 && fs_file.entry_index == fs_n_rootdir)) { 
       fs_file.entry_index = 0;
 retEnd:
+      FS_DIRENTRY[DIR_Name] = 0; /* Признак последнего файла для пользователя вызывающего fs_dirread */
       fs_file.entry_able = 0; 
       return 0; 
     }	
@@ -618,11 +643,23 @@ BYTE fs_open0(BYTE what) {
   /* Устанавливаем переменные */   
   fs_file.entry_able = 0;
   fs_file.size  = LD_DWORD(FS_DIRENTRY + DIR_FileSize);
-  fs_file.ptr   = 0;
+  fs_file.ptr   = 0;  
 #ifndef FS_DISABLE_CHECK
   fs_file.opened     = OPENED_FILE;
   if(FS_DIRENTRY[DIR_Attr] & AM_DIR) fs_file.opened = OPENED_DIR; 
 #endif
+
+  /* Нельзя дважды открывать файл */
+#ifndef FS_DISABLE_CHECK
+#ifndef FS_DISABLE_SWAP
+  if(fs_secondFile.opened==OPENED_FILE && fs_file.opened==OPENED_FILE && fs_secondFile.entry_sector == fs_file.entry_sector && fs_secondFile.entry_index==fs_file.entry_index) {
+    fs_file.opened  = OPENED_NONE;
+    lastError = ERR_ALREADY_OPENED;
+    goto abort;
+  }
+#endif
+#endif
+
   return 0;
 abort_noPath:
   lastError = ERR_NO_PATH;
@@ -908,8 +945,12 @@ static char fs_saveFileLength() {
 
 #define LSEEK_STEP 32768
 
-BYTE fs_lseek(DWORD off) {
+BYTE fs_lseek(DWORD off, BYTE mode) {
   DWORD l;
+
+  /* Режим */
+  if(mode==1) off += fs_file.ptr; else
+  if(mode==2) off += fs_file.size;                        
 
   /* Можно заменить на fs_file.ptr = 0 для уменьшения кода*/ 
   if(off >= fs_file.ptr) off -= fs_file.ptr; else fs_file.ptr = 0;
@@ -923,6 +964,9 @@ BYTE fs_lseek(DWORD off) {
 
   /* Размер файла мог изменится */
   fs_saveFileLength();
+  
+  /* Результат */
+  fs_tmp = fs_file.ptr;
 
   return 0;
 }
@@ -937,14 +981,14 @@ BYTE fs_write_start() {
   /* Проверка ошибок программиста */
 #ifndef FS_DISABLE_CHECK
   if(fs_file.opened != OPENED_FILE) { lastError = ERR_NOT_OPENED; goto abort; }
-  if(fs_file.wtotal == 0) { lastError = ERR_NO_DATA; goto abort; }
+  if(fs_wtotal == 0) { lastError = ERR_NO_DATA; goto abort; }
 #endif
 
   /* Сколько можно еще дописать в этот сектор? */
   len = 512 - (WORD)fs_file.ptr % 512;
     
   /* Ограничиваем остатком данных в файле */
-  if(len > fs_file.wtotal) len = fs_file.wtotal;
+  if(len > fs_wtotal) len = (WORD)fs_wtotal;
 
   /* Вычисление fs_file.sector, выделение кластеров */
   if(fs_nextRWSector()) goto abort; /* Должно вылетать только по ошибкам ERR_NO_FREE_SPACE, ERR_DISK_ERR */
@@ -959,8 +1003,9 @@ BYTE fs_write_start() {
   if(len != 512) {      
     if(sd_readBuf(fs_file.sector)) goto abort;
   }
-
+                              
   fs_file_wlen = len;
+  fs_file_woff = (WORD)fs_file.ptr % 512;
   return 0;
 abort:
   /* Скорее всего это ошибка ERR_NO_FREE_SPACE */
@@ -990,11 +1035,11 @@ BYTE fs_write_end() {
   /* места на диске. */
   
   /* Счетчики */
-  fs_file.ptr    += fs_file_wlen;
-  fs_file.wtotal -= fs_file_wlen;
+  fs_file.ptr += fs_file_wlen;
+  fs_wtotal   -= fs_file_wlen;
 
   /* Если запись закончена, сохраняем размера файла и первый кластер */   
-  if(fs_file.wtotal == 0) {
+  if(fs_wtotal == 0) {
     if(fs_saveFileLength()) goto abort;
   }
 
@@ -1182,13 +1227,13 @@ BYTE fs_write(CONST BYTE* ptr, WORD len) {
   /* Конец файла */
   if(len == 0) return fs_write_eof();
 
-  fs_file.wtotal = len;
+  fs_wtotal = len;
   do {
     if(fs_write_start()) goto abort;
     memcpy(fs_file_wbuf, ptr, fs_file_wlen);
     ptr += fs_file_wlen;
     if(fs_write_end()) goto abort;
-  } while(fs_file.wtotal);
+  } while(fs_wtotal);
 
   return 0;
 abort:
@@ -1236,6 +1281,42 @@ BYTE fs_getfree() {
 *  Размер накопителя в мегабайтах                                         *
 **************************************************************************/
 
-DWORD fs_gettotal() {
-  return ((fs_n_fatent >> 10) + 1) / 2 * fs_csize;
+BYTE fs_gettotal() {
+  /* Проверка ошибок программиста */               
+#ifndef FS_DISABLE_CHECK
+  if(fs_type == FS_ERROR) { lastError = ERR_NO_FILESYSTEM; return 1; }  
+#endif
+
+  fs_tmp = ((fs_n_fatent >> 10) + 1) / 2 * fs_csize;
+  return 0;
 }  
+
+/**************************************************************************
+*  Размер файла                                                           *
+**************************************************************************/
+
+BYTE fs_getfilesize() {
+#ifndef FS_DISABLE_CHECK
+  if(fs_file.opened != OPENED_FILE) {
+    lastError = ERR_NOT_OPENED;
+    return 1;
+  }
+#endif
+  fs_tmp = fs_file.size;
+  return 0;
+}
+
+/**************************************************************************
+*  Указатель чтения записи файла                                          *
+**************************************************************************/
+
+BYTE fs_tell() {
+#ifndef FS_DISABLE_CHECK
+  if(fs_file.opened != OPENED_FILE) {
+    lastError = ERR_NOT_OPENED;
+    return 1;
+  }
+#endif
+  fs_tmp = fs_file.ptr;
+  return 0;
+}

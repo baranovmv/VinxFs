@@ -44,11 +44,11 @@ int _tmain(int argc, _TCHAR* argv[])
     if(fs_readdir()) abort2("fs_readdir");
 
     // No files
-    if(!fs_file.entry_able) break;
+    if(FS_DIRENTRY[0] == 0) break;
 
     // For pritnf
     FS_DIRENTRY[DIR_Attr] = 0;
-   // printf("%s\n", FS_DIRENTRY);
+    printf("%s\n", FS_DIRENTRY);
   }
 
   // *** Delete file ***
@@ -87,17 +87,17 @@ int _tmain(int argc, _TCHAR* argv[])
   // *** Write to file without additional buffer ***
 
   for(int i=0; i<100; i++) {
-    fs_file.wtotal = 13;    
-    while(fs_file.wtotal) {
+    fs_wtotal = 13;    
+    while(fs_wtotal) {
      fs_write_start();  // Fragment on every sector     
-     memcpy((char*)fs_file_wbuf, "HELLO WORLD\r\n" + (13-fs_file.wtotal), fs_file_wlen);
+     memcpy((char*)fs_file_wbuf, "HELLO WORLD\r\n" + (13-fs_wtotal), fs_file_wlen);
      fs_write_end();
     }
   }
 
   // *** Seek ***
 
-  if(fs_lseek(fs_file.size-10)) abort2("fs_seek");
+ if(fs_lseek(-10, 2)) abort2("fs_seek");
 
   // *** Truncate file ***
 

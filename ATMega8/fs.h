@@ -20,142 +20,127 @@ Version 0.99 5-05-2013
 #include "common.h"
 
 /* Disable checking and kill the file system */
-/* РЎ РїРѕРјРѕС‰СЊСЋ СЌС‚РѕРіРѕ РјР°РєСЂРѕСЃР° РјРѕР¶РЅРѕ РѕС‚РєР»СЋС‡РёС‚СЊ РїСЂРѕРІРµСЂРєРё, С‡С‚Рѕ Р±С‹ СЃСЌРєРѕРЅРѕРјРёС‚СЊ РџР—РЈ Рё СѓР±РёС‚СЊ С„Р°Р№Р»РѕРІСѓСЋ СЃРёСЃС‚РµРјСѓ.*/
+/* С помощью этого макроса можно отключить проеерки, что бы сэкономить ПЗУ и убить файловую систему.*/
 /* #define FS_DISABLE_CHECK */
 
-/* Function fs_swap (Two opened files) */
-/* Р¤СѓРЅРєС†РёСЏ fs_swap (РґРІР° РѕС‚РєСЂС‹С‚С‹С… С„Р°Р№Р»Р°) */
+/* Two opened files */
+/* Два открытых файла */
 /* #define FS_DISABLE_SWAP */
 
-/* Function fs_getfree (Calculation of free disk space) */
-/* Р¤СѓРЅРєС†РёСЏ fs_getfree (РѕРїСЂРµРґРµР»РµРЅРёРµ СЃРІРѕР±РѕРґРЅРѕРіРѕ РјРµСЃС‚Р° РЅР° РґРёСЃРєРµ) */
+/* Calculation of free disk space */
+/* Определение свободного места на диске */
 /* #define FS_DISABLE_GETFREESPACE */
 
 /* Work buffer for filesystem */
-/* Р‘СѓС„РµСЂ РґР»СЏ СЂР°Р±РѕС‚С‹ С„Р°Р№Р»РѕРІРѕР№ СЃРёСЃС‚РµРјС‹ */
+/* Буфер для работы файловой системы */
 extern BYTE buf[512];
 
-/* File syustem errors */
-/* РћС€РёР±РєРё С„Р°Р№Р»РѕРІРѕР№ СЃРёСЃС‚РµРјС‹ */
+/* Error */
+/* Ошибки файловой системы */
 
-#define ERR_OK              0  // РќРµС‚ РѕС€РёР±РєРё
-#define ERR_NO_FILESYSTEM   1  // Р¤Р°Р№Р»РѕРІР°СЏ СЃРёСЃС‚РµРјР° РЅРµ РѕР±РЅР°СЂСѓР¶РµРЅР°
-#define ERR_DISK_ERR        2  // РћС€РёР±РєР° С‡С‚РµРЅРёСЏ/Р·Р°РїРёСЃРё
-#define	ERR_NOT_OPENED      3  // Р¤Р°Р№Р»/РїР°РїРєР° РЅРµ РѕС‚РєСЂС‹С‚Р°
-#define	ERR_NO_PATH         4  // Р¤Р°Р№Р»/РїР°РїРєР° РЅРµ РЅР°Р№РґРµРЅР°
-#define ERR_DIR_FULL        5  // РџР°РїРєР° СЃРѕРґРµСЂР¶РёС‚ РјР°РєСЃРёРјР°Р»СЊРЅРѕРµ РєРѕР»-РІРѕ С„Р°Р№Р»РѕРІ
-#define ERR_NO_FREE_SPACE   6  // РќРµС‚ СЃРІРѕР±РѕРґРЅРѕРіРѕ РјРµСЃС‚Р°
-#define ERR_DIR_NOT_EMPTY   7  // РќРµР»СЊР·СЏ СѓРґР°Р»РёС‚СЊ РїР°РїРєСѓ, РѕРЅР° РЅРµ РїСѓСЃС‚Р°
-#define ERR_FILE_EXISTS     8  // Р¤Р°Р№Р»/РїР°РїРєР° СЃ С‚Р°РєРёРј РёРјРµРЅРµРј СѓР¶Рµ СЃСѓС‰РµСЃС‚РІСѓРµС‚
-#define ERR_NO_DATA         9  // fs_file_wtotal=0 РїСЂРё РІС‹Р·РѕРІРµ С„СѓРЅРєС†РёРё fs_write_begin
+#define ERR_OK              0  // Нет ошибки
+#define ERR_NO_FILESYSTEM   1  // Файловая система не обнаружена
+#define ERR_DISK_ERR        2  // Ошибка чтения/записи
+#define	ERR_NOT_OPENED      3  // Файл/папка не открыта
+#define	ERR_NO_PATH         4  // Файл/папка не найдена
+#define ERR_DIR_FULL        5  // Папка содержит максимальное кол-во файлов
+#define ERR_NO_FREE_SPACE   6  // Нет свободного места
+#define ERR_DIR_NOT_EMPTY   7  // Нельзя удалить папку, она не пуста
+#define ERR_FILE_EXISTS     8  // Файл/папка с таким именем уже существует
+#define ERR_NO_DATA         9  // fs_file_wtotal=0 при вызове функции fs_write_begin
     
-#define ERR_MAX_FILES       10 // РќРµ РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ С„Р°Р№Р»РѕРІРѕР№ СЃРёСЃС‚РµРјРѕР№, СЂРµР·РµСЂРІ
-#define ERR_RECV_STRING     11 // РќРµ РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ С„Р°Р№Р»РѕРІРѕР№ СЃРёСЃС‚РµРјРѕР№, СЂРµР·РµСЂРІ
-#define ERR_INVALID_COMMAND 12 // РќРµ РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ С„Р°Р№Р»РѕРІРѕР№ СЃРёСЃС‚РµРјРѕР№, СЂРµР·РµСЂРІ
-         
-/* Filesystem variables. Read-only */
-/* РџРµСЂРµРјРµРЅРЅС‹Рµ С„Р°Р№Р»РѕРІРѕР№ СЃРёСЃС‚РµРјС‹. РўРѕР»СЊРєРѕ РґР»СЏ С‡С‚РµРЅРёСЏ */
+#define ERR_MAX_FILES       10 // Не используется файловой системой, резерв
+#define ERR_RECV_STRING     11 // Не используется файловой системой, резерв
+#define ERR_INVALID_COMMAND 12 // Не используется файловой системой, резерв
 
-typedef struct { 
-#ifndef FS_DISABLE_CHECK
-  BYTE  opened;              /* Р§С‚Рѕ РѕС‚РєСЂС‹С‚Рѕ: OPENED_NONE, OPENED_FILE, OPENED_DIR */
-#endif
-  BYTE  entry_able;          /* Р РµР·СѓР»СЊС‚Р°С‚ РІС‹РїРѕР»РЅРµРЅРёСЏ С„СѓРЅРєС†РёРё fs_dirread */
-  WORD  entry_index;         /* РќРѕРјРµСЂ Р·Р°РїРёСЃРё РІ РєР°С‚Р°Р»РѕРіРµ */
-  DWORD entry_cluster;       /* РљР»Р°СЃС‚РµСЂ Р·Р°РїРёСЃРё РІ РєР°С‚Р°Р»РѕРіРµ */
-  DWORD entry_sector;        /* РЎРµРєС‚РѕСЂ Р·Р°РїРёСЃРё РІ РєР°С‚Р°Р»РѕРіРµ */
-  DWORD entry_start_cluster; /* РџРµСЂРІС‹Р№ СЃРµРєС‚РѕСЂ С„Р°Р№Р»Р° РёР»Рё РєР°С‚Р°Р»РѕРіР° (0 - РєРѕСЂРЅРµРІРѕР№ РєР°С‚Р°Р»РѕРі FAT16) */
-  DWORD ptr;                 /* РЈРєР°Р·Р°С‚РµР»СЊ С‡С‚РµРЅРёСЏ/Р·Р°РїРёСЃРё С„Р°Р№Р»Р°*/
-  DWORD size;                /* Р Р°Р·РјРµСЂ С„Р°Р№Р»Р° / File size */
-  DWORD cluster;             /* РўРµРєСѓС‰РёР№ РєР»Р°СЃС‚РµСЂ С„Р°Р№Р»Р° / Current cluster */
-  DWORD sector;              /* РўРµРєСѓС‰РёР№ СЃРµРєС‚РѕСЂ С„Р°Р№Р»Р° / Current sector */
-  WORD  wtotal;              /* РђСЂРіСѓРјРµРЅС‚С‹ С„СѓРЅРєС†РёРё fs_write_start, fs_write_end */
-  BYTE  changed;             /* Р Р°Р·РјРµСЂ С„Р°Р№Р»Р° РёР·РјРµРЅРёР»СЃСЏ, РЅР°РґРѕ СЃРѕС…СЂР°РЅРёС‚СЊ */
-} File;
+#define ERR_ALREADY_OPENED  13 // Файл уже открыт (fs_swap)
 
-extern File fs_file;
+/* Filesystem variables. Can change */
+/* Переменные файловой системы. Можно изменять */
+
 extern DWORD fs_tmp;
-
-/* Filesystem variables. You can change it. */
-/* РџРµСЂРµРјРµРЅРЅС‹Рµ С„Р°Р№Р»РѕРІРѕР№ СЃРёСЃС‚РµРјС‹. РњРѕР¶РЅРѕ РёР·РјРµРЅСЏС‚СЊ */
-
-extern BYTE lastError;       /* РџРѕСЃР»РµРґРЅСЏСЏ РѕС€РёР±РєР° С„Р°Р№Р»РѕРІРѕР№ СЃРёСЃС‚РµРјС‹ РёР»Рё РґРёСЃРєР° / Last error */
+extern BYTE lastError;       /* Последняя ошибка файловой системы или диска */
+extern WORD fs_wtotal;       /* Используется функциями fs_write_start, fs_write_end*/
 
 /* Maximal length of file name */
-/* РњР°РєСЃРёРјР°Р»СЊРЅР°СЏ РґР»РёРЅР° РёРјРµРЅРё */
+/* Максимальная длина имени */
 
 #define FS_MAXFILE  469
 
 /* Result of fs_readdir */
-/* РћРїРёСЃР°С‚РµР»СЊ РїСЂРѕС‡РёС‚Р°РЅРЅС‹Р№ С„СѓРЅРєС†РёРµР№ fs_readdir */
+/* Описатель прочитанный функцией fs_readdir */
 
 #define FS_DIRENTRY  (buf + 480)
 
 /* Functions. Returns not 0 if error occured. Destroy buf variable*/
-/* Р¤СѓРЅРєС†СЏРёРё. Р’РѕР·СЂР°С‰Р°СЋС‚ РЅРµ 0, РµСЃР»Рё РѕС€РёР±РєР°. Р’СЃРµ С„СѓРЅРєС†РёРё РїРѕСЂС‚СЏС‚ buf */
+/* Функцяии. Возращают не 0, если ошибка. Все функции портят buf */
 
-BYTE fs_init();                                  /* РРЅРёС†РёР°Р»РёР°Р·С†РёСЏ С„Р°Р№Р»РѕРІРѕР№ СЃРёСЃС‚РµРјС‹ / Init filesystem */
-BYTE fs_check();                                 /* РџСЂРѕРІРµСЂРєР° РЅР°Р»РёС‡РёСЏ РґРёСЃРєР°, Рё РµСЃР»Рё РЅСѓР¶РЅРѕ, С‚Рѕ РµРіРѕ РёРЅРёС†РёР°Р»РёР·Р°С†РёСЏ / Checking the disk and, if necessary, it will be initialized */
-BYTE fs_readdir();                               /* РџСЂРѕС‡РёС‚Р°С‚СЊ СЃРѕРґРµР¶РёРјРѕРµ РїР°РїРєРё РІ DIRENTRY / Read folder contents in DIRENTRY */
-BYTE fs_delete();                                /* РЈРґР°Р»РёС‚СЊ С„Р°Р№Р» РёР»Рё РїР°РїРєСѓ, РёРјСЏ РІ buf / Delete file or folder, name in buf */
-BYTE fs_open0(BYTE what);                        /* РћС‚РєСЂС‹С‚СЊ/СЃРѕР·РґР°С‚СЊ С„Р°Р№Р» РёР»Рё РїР°РїРєСѓ, РёРјСЏ РІ buf. Open/create file or foder, name in buf */
-BYTE fs_move0();                                 /* РџРµСЂРµРјРµСЃС‚РёС‚СЊ С„Р°Р№Р»/РїР°РїРєСѓ. Move file or folder, source file must been opened, destination name in buf */
-BYTE fs_move(const char* from, const char* to);  /* РџРµСЂРµРјРµСЃС‚РёС‚СЊ С„Р°Р№Р»/РїР°РїРєСѓ. Move file or folder. */
-BYTE fs_lseek(DWORD);                            /* РЈСЃС‚Р°РЅРѕРІРёС‚СЊ СѓРєР°Р·Р°С‚РµР»СЊ С‡С‚РµРЅРёСЏ/Р·Р°РїРёСЃРё С„Р°Р№Р»Р°, СѓРІРµР»РёС‡РёРІР°РµС‚ СЂР°Р·РјРµСЂ С„Р°Р№Р»Р°. / Set file pointer, enlarge file size. */
-BYTE fs_read0(BYTE* ptr, WORD len);              /* РџСЂРѕС‡РёС‚Р°С‚СЊ РёР· С„Р°Р№Р»Р°. РќР•Р›Р¬Р—РЇ Р’Р«РҐРћР”РРўР¬ Р—Рђ РџР Р•Р”Р•Р›Р« Р¤РђР™Р›Рђ! / Read from the file, DO NOT COME OUT FILE */
-BYTE fs_read(BYTE* ptr, WORD len, WORD* readed); /* РџСЂРѕС‡РёС‚Р°С‚СЊ РёР· С„Р°Р№Р»Р°. / Read from the file. */
-BYTE fs_write(CONST BYTE* ptr, WORD len);        /* Р—Р°РїРёСЃР°С‚СЊ РІ С„Р°Р№Р», СѓРІРµР»РёС‡РёРІР°РµС‚ СЂР°Р·РјРµСЂ С„Р°Р№Р»Р°. / Р—Р°РїРёСЃР°С‚СЊ РІ С„Р°Р№Р», enlarge file size. */
-BYTE fs_write_eof();                             /* РЈСЃС‚Р°РЅРѕРІРёС‚СЊ РєРѕРЅРµС† С„Р°Р№Р»Р°, СѓРјРµРЅСЊС€Р°РµС‚ СЂР°Р·РјРµСЂ С„Р°Р№Р»Р°. / Set end of file, reduces file size */
+BYTE fs_init();                                  /* Инициалиазция файловой системы / Init filesystem */
+BYTE fs_check();                                 /* Проверка наличия диска, и если нужно, то его инициализация / Checking the disk and, if necessary, it will be initialized */
+BYTE fs_readdir();                               /* Прочитать содежимое папки в DIRENTRY / Read folder contents in DIRENTRY */
+BYTE fs_delete();                                /* Удалить файл или папку, имя в buf / Delete file or folder, name in buf */
+BYTE fs_open0(BYTE what);                        /* Открыть/создать файл или папку, имя в buf. Open/create file or foder, name in buf */
+BYTE fs_move0();                                 /* Переместить файл/папку. Move file or folder, source file must been opened, destination name in buf */
+BYTE fs_move(const char* from, const char* to);  /* Переместить файл/папку. Move file or folder. */
+BYTE fs_lseek(DWORD ptr, BYTE mode);             /* Установить указатель чтения/записи файла, увеличивает размер файла. / Set file pointer, enlarge file size. */
+BYTE fs_tell();                                  /* Получить указатель чтения/записи файла в fs_tmp / Get file pointer in fs_tmp. */
+BYTE fs_getfilesize();                           /* Получить размер файла / Get file size. */
+BYTE fs_read0(BYTE* ptr, WORD len);              /* Прочитать из файла. НЕЛЬЗЯ ВЫХОДИТЬ ЗА ПРЕДЕЛЫ ФАЙЛА! / Read from the file, DO NOT COME OUT FILE */
+BYTE fs_read(BYTE* ptr, WORD len, WORD* readed); /* Прочитать из файла. / Read from the file. */
+BYTE fs_write(CONST BYTE* ptr, WORD len);        /* Записать в файл, увеличивает размер файла. / Записать в файл, enlarge file size. */
+BYTE fs_write_eof();                             /* Установить конец файла, уменьшает размер файла. / Set end of file, reduces file size */
+BYTE fs_gettotal();                              /* Общее место на диске в fs_tmp в мегабайтах / Total disk space in fs_tmp (megabytes) */
 
 #ifndef FS_DISABLE_SWAP
-void fs_swap();                                  /* РџРµСЂРµРєР»СЋС‡РёС‚СЃСЏ РЅР° РІС‚РѕСЂРѕР№ С„Р°Р№Р» / Switch to the second file */
+void fs_swap();                                  /* Переключится на второй файл / Switch to the second file */
 #endif
 
 #ifndef FS_DISABLE_GETFREESPACE
-BYTE fs_getfree();                               /* РЎРІРѕР±РѕРґРЅРѕРµ РјРµСЃС‚Рѕ РЅР° РґРёСЃРєРµ РІ РјРµРіР°Р±Р°Р№С‚Р°С… / Free disk space in megabytes */
+BYTE fs_getfree();                               /* Свободное место на диске в fs_tmp  в мегабайтах / Free disk space in fs_tmp (megabytes) */
 #endif
 
-DWORD fs_gettotal();                             /* Р Р°Р·РјРµСЂ РґРёСЃРєР° РІ РјРµРіР°Р±Р°Р№С‚Р°С… / The size of the disk in megabytes */
 
-/* Р¤СѓРЅРєС†РёРё РЅРёР¶Рµ РїРѕР·РІРѕР»СЏСЋС‚ РёСЃРїРѕР»СЊР·РѕРІР°С‚СЊ РґР»СЏ Р·Р°РїРёСЃРё Р±СѓС„РµСЂ (buf).
+/* Функции ниже позволяют использовать для записи буфер (buf).
 *  The functions below can be used to write the buffer (buf).
 *
-*  fs_file.wtotal = СЂР°Р·РјРµСЂ РґР°РЅРЅС‹С… РґР»СЏ Р·Р°РїРёСЃРё;
-*  while(fs_file.wtotal) {
-*    fs_write_start();
-*    РљРѕРїРёСЂСѓРµРј fs_file_wlen Р±Р°Р№С‚ РІ fs_file_wbuf
-*    РќРё РѕРґРЅР° С„СѓРЅРєС†РёСЏ Р¤РЎ РЅРµ РґРѕР»Р¶РµР° РІС‹РїРѕРЅСЏС‚СЃСЊСЏ РјРµР¶РґСѓ РЅРёРјРё
-*    fs_write_end();
+*  wtotal = размер данных для записи;
+*  while(wtotal) {
+*    fs_write_start(&wtotal);
+*    Копируем fs_file_wlen байт в fs_file_wbuf
+*    Ни одна функция ФС не должеа выпонятсья между ними
+*    fs_write_end(&wtotal);
 *  }
 *
 * See the source of fs_write
-* РР»Рё СЃРјРѕС‚СЂРё РёСЃС…РѕРґРЅРёРєРё fs_write
+* Или смотри исходники fs_write
 */
 
-#define fs_file_wbuf   (buf + (((WORD)fs_file.ptr) & 511))
 #define fs_file_wlen   (*(WORD*)&fs_tmp)
+#define fs_file_woff   ((WORD*)&fs_tmp)[1]
+#define fs_file_wbuf   (buf + fs_file_woff)
 
 BYTE fs_write_start(); 
 BYTE fs_write_end();
 
 /* Derived from the function fs_open0 */
-/* РџСЂРѕРёР·РІРѕРґРЅС‹Рµ РѕС‚ С„СѓРЅРєС†РёРё fs_open0 */
+/* Производные от функции fs_open0 */
 
-BYTE fs_open();                                  /* РћС‚РєСЂС‹С‚СЊ С„Р°Р№Р» */
-BYTE fs_opendir();                               /* РћС‚РєСЂС‹С‚СЊ РїР°РїРєСѓ */
-#define fs_openany()    fs_open0(OPENED_NONE)    /* РћС‚РєСЂС‹С‚СЊ С„Р°Р№Р» РёР»Рё РїР°РїРєСѓ */
-#define fs_create()     fs_open0(OPENED_FILE)    /* РЎРѕР·РґР°С‚СЊ С„Р°Р№Р» */
-#define fs_createdir()  fs_open0(OPENED_DIR)     /* РЎРѕР·РґР°С‚СЊ РїР°РїРєСѓ */
+BYTE fs_open();                                  /* Открыть файл */
+BYTE fs_opendir();                               /* Открыть папку */
+#define fs_openany()    fs_open0(OPENED_NONE)    /* Открыть файл или папку */
+#define fs_create()     fs_open0(OPENED_FILE)    /* Создать файл */
+#define fs_createdir()  fs_open0(OPENED_DIR)     /* Создать папку */
 
-/* Values fs_opened */
-/* Р—РЅР°С‡РµРЅРёСЏ fs_opened */
+
+/* Values ??fs_opened */
+/* Значения fs_opened */
 
 #define OPENED_NONE    0
 #define OPENED_FILE    1
 #define OPENED_DIR     2
 
 /* File attributes */
-/* РђС‚СЂРёР±СѓС‚С‹ С„Р°Р№Р»РѕРІ */
+/* Атрибуты файлов */
 
 #define	AM_RDO         0x01  /* Read only */
 #define	AM_HID         0x02  /* Hidden */
@@ -165,7 +150,7 @@ BYTE fs_opendir();                               /* РћС‚РєСЂС‹С‚СЊ РїР°РїРєСѓ */
 #define AM_ARC         0x20  /* Archive */
 
 /* Fodler descriptor (FS_DIRENTRY) */
-/* РћРїРёСЃР°С‚РµР»СЊ (FS_DIRENTRY) */
+/* Описатель */
 
 #define	DIR_Name       0
 #define	DIR_Attr       11
