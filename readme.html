@@ -1,0 +1,55 @@
+<h1>VinxFS File System Module</h1>
+
+<p>It is an open source software to implement FAT file system to
+small embedded systems. This is a free software and is opened for education,
+research and commercial developments under license policy of following trems.</p>
+<p></p>
+<p>(C) 2013 vinxru</p>
+<p>(C) 2010, ChaN, all right reserved.</p>
+
+<h2>Features</h2>
+
+<li>Very small RAM consumption (~50 bytes work area + certain stack)
+<li>512 byte temporary buffer. Used only while the function run.
+<li>Very small code size (2K-7K bytes).
+<li>Supports FAT16, FAT32.
+<li>Single volume and Single file.
+<li><b>File write function with out restrictions.</b>
+<li><b>Can create, delete, rename, resize, move, file and directory</b>
+
+<h2>Application Interface</h2>
+
+<p>VinxFS module provides following functions.</p>
+
+<li>fs_init - Mount a volume</li>
+<li>fs_check - If user changed a drive, when mount it</li>
+<li>fs_opendir - Open a directory</li>
+<li>fs_readdir - Read a directory item</li>
+<li>fs_delete - Delete a file or directory</li>
+<li>fs_open - Open a File</li>
+<li>fs_openany - Open a file or directory</li>
+<li>fs_create - Create a file;</li>
+<li>fs_createdir - Create a directory</li>
+<li>fs_move0, fs_move - Move or rename a file or directory</li>
+<li>fs_lseek - Move read/write pointer</li>
+<li>fs_tell - Get read/write pointer</li>
+<li>fs_getfilesize - Get file size</li>
+<li>fs_read0, fs_read - Read file</li>
+<li>fs_write - Write File</li>
+<li>fs_write_eof - Truncate file</li>
+<li>fs_write_start, fs_write_end - Write temporary buffer to a file</li>
+<li>fs_swap - Swap opened files (work this two files)</li>
+<li>fs_gettotal - Get total drive space</li>
+<li>fs_getfree - Get free drive space</li>
+
+<h2>Drive I/O Interface</h2>
+
+<p>Since the VinxFS module is completely separated from disk I/O layer, it requires 
+following functions to lower layer to read the physical disk.</p>
+
+<li>sd_init - Initialize disk drive</li>
+<li>sd_check - Check if user changed a drive</li>
+<li>sd_read - Read partial sector</li>
+<li>sd_write512 - Write sector</li>
+
+<p>The module contains driver SD Card connected at ATMega8</p>
