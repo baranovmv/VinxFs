@@ -9,9 +9,9 @@ research and commercial developments under license policy of following trems.</p
 
 <img align=right src="icon.png"><h1>VinxFS File System Module</h1>
 
-<li>Very small RAM consumption (~50 bytes work area + certain stack)</li>
+<li>Very small RAM consumption (64 bytes work area + 33 bytes for second opened file + certain stack)</li>
 <li>512 byte temporary buffer. Used only while the function run.</li>
-<li>Very small code size (2K-7K bytes).</li>
+<li>Very small code size. Full version ~6400 bytes (80% of FLASH AMEGA8), </li>
 <li>Supports FAT16, FAT32.</li>
 <li>Single volume and <b>two opened files</b>.</li>
 <li><b>File write function with out restrictions.</b></li>

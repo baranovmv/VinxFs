@@ -7,10 +7,9 @@ is opened for education, research and commercial developments under license poli
 
 *** Features ***
 
-- Very small RAM consumption (~50 bytes work area + certain stack)
+- Very small RAM consumption (64 bytes work area + 33 bytes for second opened file + certain stack)
 - 512 byte temporary buffer. Used only while the function run.
-- Very small code size (2K-7K bytes).
-- Supports FAT16, FAT32.
+- Very small code size. Full version ~6400 bytes (80% of FLASH AMEGA8), 
 - Single volume and two opened files.
 - File write function with out restrictions.
 - Can create, delete, rename, resize, move, file and directory
