@@ -36,7 +36,7 @@ VinxFS module provides following functions:
 - fs_write - Write File
 - fs_write_eof - Truncate file
 - fs_write_start, fs_write_end - Write temporary buffer to a file
-- fs_swap - Swap opened files (work this two files)
+- fs_swap - Swap opened files (work with two files)
 - fs_gettotal - Get total drive space
 - fs_getfree - Get free drive space
 
